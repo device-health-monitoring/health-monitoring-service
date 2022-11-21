@@ -1,0 +1,57 @@
+plugins {
+    id 'java-library'
+}
+group 'io.openremote'
+
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    api "org.slf4j:slf4j-api:$slf4jVersion"
+    api "org.slf4j:slf4j-jdk14:$slf4jVersion"
+    api "org.slf4j:jcl-over-slf4j:$slf4jVersion"
+    api "org.slf4j:log4j-over-slf4j:$slf4jVersion"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    api "org.jboss.spec.javax.ws.rs:jboss-jaxrs-api_2.1_spec:$jaxrsSpecVersion"
+    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5'
+    api "org.keycloak:keycloak-core:$keycloakVersion"
+
+    api "org.keycloak:keycloak-client-registration-api:$keycloakVersion"
+    api "org.keycloak:keycloak-undertow-adapter:$keycloakVersion"
+    api "org.keycloak:keycloak-admin-client:$keycloakVersion"
+
+
+    api resolveProject(":model")
+    api resolveProject(":container")
+
+
+    implementation ("io.netty:netty-codec-http:$nettyVersion") {
+        force = true
+    }
+    // Exposed via MQTT API
+    api ("io.netty:netty-codec-mqtt:$nettyVersion") {
+        force = true
+    }
+
+    implementation("org.apache.activemq:artemis-mqtt-protocol:$activeMQVersion") {
+        exclude group: "org.osgi"
+    }
+
+    // Needed for reference in tests
+    api("org.apache.activemq:artemis-server:$activeMQVersion") {
+        exclude group: "org.osgi"
+    }
+
+
+
+}
+
+test {
+    useJUnitPlatform()
+}

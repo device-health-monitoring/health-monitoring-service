@@ -1,0 +1,10 @@
+org.openremote.container.timer.TimerService
+org.openremote.monitoring.persistence.ManagerPersistenceService
+org.openremote.monitoring.event.ClientEventService
+org.openremote.container.message.MessageBrokerService
+org.openremote.monitoring.system.HealthStatusService
+org.openremote.monitoring.mqtt.MQTTBrokerService
+org.openremote.monitoring.setup.SetupService
+
+
+
