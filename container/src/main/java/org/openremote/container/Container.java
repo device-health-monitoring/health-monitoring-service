@@ -165,9 +165,6 @@ public class Container implements org.openremote.model.Container {
         LOG.info(">>> Starting runtime container...");
 
         try {
-            System.out.println("lenth of getservices");
-            System.out.println(getServices().length);
-
             for (ContainerService service : getServices()) {
 
                 LOG.fine("Initializing service: " + service);

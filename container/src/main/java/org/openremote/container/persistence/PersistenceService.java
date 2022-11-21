@@ -331,12 +331,11 @@ public class PersistenceService implements ContainerService, Consumer<Persistenc
             .map(Class::getName).forEach(entityClasses::add));
 
         this.entityManagerFactory = getEntityManagerFactory(persistenceUnitProperties, entityClasses);
-        //Persistence.createEntityManagerFactory(persistenceUnitName, persistenceUnitProperties);
+//        Persistence.createEntityManagerFactory(persistenceUnitName, persistenceUnitProperties);
     }
 
     protected EntityManagerFactory getEntityManagerFactory(Properties properties, List<String> classNames) {
         PersistenceUnitInfo persistenceUnitInfo = new PersistenceUnitInfo(classNames, properties);
-
         return new EntityManagerFactoryBuilderImpl(
             new PersistenceUnitInfoDescriptor(persistenceUnitInfo), null)
             .build();
