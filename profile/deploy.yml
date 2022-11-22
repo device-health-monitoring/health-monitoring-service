@@ -1,0 +1,127 @@
+# OpenRemote v3
+#
+# This is the base configuration profile. Note that you must extend this configuration to complete
+# it with service dependencies and volume mappings, see docker-compose.yml for a usable complete
+#  configuration.
+#
+# This file contains a description of all the environment variables available for each service
+# including their default values. These can be overridden in many ways, shell environment variable,
+# env file, extending/merging this compose file, etc.
+#
+# Here's a list of commonly customised environment variables:
+#
+# OR_ADMIN_PASSWORD
+# OR_HOSTNAME
+# OR_EMAIL_HOST
+# OR_EMAIL_USER
+# OR_EMAIL_PASSWORD
+# OR_EMAIL_FROM
+# OR_EMAIL_ADMIN
+# OR_IDENTITY_PROVIDER
+#
+version: '2.4'
+
+volumes:
+#  postgresql-data: # Needed if you want to persist postgres data outside of container
+  temp-data: # Needed to share temp export data between postgres and manager containers
+  proxy-data: #Needed to persist SSL certificates to avoid excessive requests to Letsencrypt
+  btmesh-data: #Needed to persist Bluetooth mesh data (if using Bluetooth mesh)
+
+services:
+
+  # Reverse proxy which auto-generates any Internet Assigned Numbers Authority TLD subdomain SSL certificates using
+  # Lets Encrypt the domain name to generate a certificate for should be specified using DOMAINNAME (single domain name)
+  # or DOMAINNAMES (multiple comma separated list of domain names). The proxy will fallback to self-signed certificate
+  # for any requests for which a certificate doesn't exist. Custom certificates can be volume mapped into
+  # /etc/haproxy/certs (note custom certificates must include the full chain including the private key). Can also volume
+  # map a custom proxy config file.
+  proxy:
+    image: openremote/proxy:${PROXY_VERSION:-latest}
+    restart: always
+#    volumes:
+#      - proxy-data:/deployment
+    environment:
+
+      # It is important that all services have the same timezone and are time synchronized.
+      # Bearer tokens are only valid for minutes, and authentication fails if Keycloak drifts.
+      TZ: ${TZ:-Europe/Amsterdam}
+
+      # File to which entrypoint logs are written in addition to std out
+      LOGFILE: ${PROXY_LOGFILE:-/var/log/proxy.log}
+
+      # Customize proxy log, defaults to 'notice', requests are logged at 'info'.
+      # Available levels are: emerg, alert, crit, err, warning, notice, info, debug
+      PROXY_LOGLEVEL: ${PROXY_LOGLEVEL:-notice}
+
+      # IANA TLD subdomain for which an SSL certificate should be requested (leave blank for private/externally
+      # generated certificates).
+      DOMAINNAME: ${OR_HOSTNAME:-localhost}
+
+      # IANA TLD comma separated subdomains for which an SSL certificates should be requested (leave blank for
+      # private/externally generated certificates); this is an alternative to DOMAINNAME for multiple domains.
+      DOMAINNAMES: ${OR_ADDITIONAL_HOSTNAMES:-}
+
+      # USE A CUSTOM PROXY CONFIG - COPY FROM https://raw.githubusercontent.com/openremote/proxy/main/haproxy.cfg
+      HAPROXY_CONFIG: ${HAPROXY_CONFIG:-/etc/haproxy/haproxy.cfg}
+
+      # Email address for SSL certificate issuance and expiration notifications.
+      LE_EMAIL: ${OR_EMAIL_ADMIN:-}
+
+      # Enable --staging will manage fake certificates, so avoid hitting the rate limits of Let's Encrypt
+      # when testing (this is important, you are limited to 5 duplicate certificates per week!)
+      # e.g. '--staging'
+      LE_EXTRA_ARGS: ${PROXY_EXTRA_ARGS:-}
+
+      # The proxy supports up to 10 custom redirects from hostname to any path on the
+      # manager service.
+      # e.g. PROXY_HOST_REDIRECT_1_NAME: www.my-console-master.tld
+      #      PROXY_HOST_REDIRECT_1_TARGET: /console/master
+      PROXY_HOST_REDIRECT_1_NAME:
+      PROXY_HOST_REDIRECT_1_TARGET:
+      PROXY_HOST_REDIRECT_2_NAME:
+      PROXY_HOST_REDIRECT_2_TARGET:
+      PROXY_HOST_REDIRECT_3_NAME:
+      PROXY_HOST_REDIRECT_3_TARGET:
+      PROXY_HOST_REDIRECT_4_NAME:
+      PROXY_HOST_REDIRECT_4_TARGET:
+      PROXY_HOST_REDIRECT_5_NAME:
+      PROXY_HOST_REDIRECT_5_TARGET:
+      PROXY_HOST_REDIRECT_6_NAME:
+      PROXY_HOST_REDIRECT_6_TARGET:
+      PROXY_HOST_REDIRECT_7_NAME:
+      PROXY_HOST_REDIRECT_7_TARGET:
+      PROXY_HOST_REDIRECT_8_NAME:
+      PROXY_HOST_REDIRECT_8_TARGET:
+      PROXY_HOST_REDIRECT_9_NAME:
+      PROXY_HOST_REDIRECT_9_TARGET:
+      PROXY_HOST_REDIRECT_10_NAME:
+      PROXY_HOST_REDIRECT_10_TARGET:
+
+    # Expose public services (web server, MQTT broker)
+    ports:
+      - "80:80" # HTTP for letsencrypt cert generation and in general it redirects to 443 for HTTPS
+      - "${OR_SSL_PORT:-443}:443" # HTTPS /auth directs to keycloak and other paths direct to manager
+      - "8883:8883" # MQTTS
+
+  
+  # PostgreSQL DBMS
+  postgresql:
+    image: openremote/postgresql:${POSTGRESQL_VERSION:-latest}
+    restart: always
+    # Docker volume for persistent storage of DB; can alternatively map to host
+    volumes:
+      - temp-data:/tmp
+#      - postgresql-data:/var/lib/postgresql/data
+    #ports:
+    #  - "5432:5432" # DB server
+    environment:
+
+      # It is important that all services have the same timezone and are time synchronized.
+      # Bearer tokens are only valid for minutes, and authentication fails if Keycloak drifts.
+      TZ: ${TZ:-Europe/Amsterdam}
+      PGTZ: ${PGTZ:-Europe/Amsterdam}
+
+      # Database settings
+      POSTGRES_DB: ${OR_DB_NAME:-openremote}
+      POSTGRES_USER: ${OR_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${OR_DB_PASSWORD:-postgres}

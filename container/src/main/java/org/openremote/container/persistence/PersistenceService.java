@@ -208,7 +208,7 @@ public class PersistenceService implements ContainerService, Consumer<Persistenc
     public static final String OR_DB_HOST = "OR_DB_HOST";
     public static final String OR_DB_HOST_DEFAULT = "localhost";
     public static final String OR_DB_PORT = "OR_DB_PORT";
-    public static final int OR_DB_PORT_DEFAULT = 5432;
+    public static final int OR_DB_PORT_DEFAULT = 5433;
     public static final String OR_DB_NAME = "OR_DB_NAME";
     public static final String OR_DB_NAME_DEFAULT = "openremote";
     public static final String OR_DB_SCHEMA = "OR_DB_SCHEMA";
