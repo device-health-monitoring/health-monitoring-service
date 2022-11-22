@@ -1,0 +1,19 @@
+# OpenRemote v3
+#
+# Profile for doing IDE development work and running build tests.
+#
+# Please see profile/deploy.yml for configuration details for each service.
+#
+version: '2.4'
+
+services:
+
+  postgresql:
+    extends:
+      file: deploy.yml
+      service: postgresql
+    volumes:
+      - ./tmp:/tmp
+    # Access directly if needed on localhost
+    ports:
+      - "5433:5432"
