@@ -390,6 +390,8 @@ public class PersistenceService implements ContainerService, Consumer<Persistenc
             tx.begin();
             R result = entityManagerFunction.apply(em);
             tx.commit();
+
+
             return result;
         } catch (Exception ex) {
             if (tx != null && tx.isActive()) {

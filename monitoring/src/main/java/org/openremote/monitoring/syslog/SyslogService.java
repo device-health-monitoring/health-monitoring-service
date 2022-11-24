@@ -84,12 +84,6 @@ public class SyslogService extends Handler implements ContainerService {
                     subscription.isEventType(SyslogEvent.class) && auth != null && (auth.isSuperUser() || auth.hasResourceRole(Constants.READ_LOGS_ROLE, Constants.KEYCLOAK_CLIENT_ID)));
         }
 
-//        if (container.hasService(ManagerWebService.class)) {
-//            container.getService(ManagerWebService.class).addApiSingleton(
-//                    new SyslogResourceImpl(this)
-//            );
-//        }
-
         // Default config: Store all INFO messages for five days
         config = new SyslogConfig(
                 SyslogLevel.INFO, SyslogCategory.values(), 60 * 24 * 5
@@ -143,9 +137,15 @@ public class SyslogService extends Handler implements ContainerService {
 
     @Override
     public void publish(LogRecord record) {
+
         SyslogEvent syslogEvent = SyslogCategory.mapSyslogEvent(record);
+//        DefaultMQTTHandler.PublishMessageToMQTT(DefaultMQTTHandler.SYSLOG_TOPIC);
+
+
         if (syslogEvent != null) {
             try {
+                System.out.println("publish adasdasds"+ syslogEvent);
+
                 store(syslogEvent);
             } catch (Exception e) {
                 LOG.log(Level.SEVERE, "Failed to store syslog event", e);
@@ -251,17 +251,21 @@ public class SyslogService extends Handler implements ContainerService {
     }
 
     protected void store(SyslogEvent syslogEvent) {
-        if (persistenceService == null)
+        if (persistenceService == null) {
+            System.out.println("persistenceService e nula");
             return;
-
+        }
         // If we are not ready (on startup), ignore
         if (persistenceService.getEntityManagerFactory() == null) {
+            System.out.println("persistenceService menijera e nula");
             return;
         }
         boolean isLoggable =
                 config.getStoredLevel().isLoggable(syslogEvent)
                         && Arrays.asList(config.getStoredCategories()).contains(syslogEvent.getCategory());
         if (isLoggable) {
+            System.out.println("trq raboti");
+
             synchronized (batch) {
                 batch.add(syslogEvent);
             }

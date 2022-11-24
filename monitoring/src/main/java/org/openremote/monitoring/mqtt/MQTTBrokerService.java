@@ -47,9 +47,7 @@ import org.openremote.model.util.Debouncer;
 import org.openremote.model.util.TextUtil;
 import org.openremote.model.util.ValueUtil;
 
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -72,6 +70,9 @@ public class MQTTBrokerService extends RouteBuilder implements ContainerService,
     protected static final Logger LOG = SyslogCategory.getLogger(API, MQTTBrokerService.class);
 
 
+    protected List<MQTTHandler> customHandlers = new ArrayList<>();
+
+
     protected MessageBrokerService messageBrokerService;
     protected ScheduledExecutorService executorService;
     protected TimerService timerService;
@@ -81,7 +82,7 @@ public class MQTTBrokerService extends RouteBuilder implements ContainerService,
     protected ConcurrentMap<Object, Triple<String, String, String>> transientCredentials = new ConcurrentHashMap<>();
     protected Debouncer<String> userAssetDisconnectDebouncer;
 
-    protected boolean active;
+
     protected String host;
     protected int port;
     protected EmbeddedActiveMQ server;
@@ -102,15 +103,10 @@ public class MQTTBrokerService extends RouteBuilder implements ContainerService,
         executorService = container.getExecutorService();
         timerService = container.getService(TimerService.class);
         userAssetDisconnectDebouncer = new Debouncer<>(executorService, this::forceDisconnectUser, 10000);
-
-
     }
 
     @Override
     public void start(Container container) throws Exception {
-        LOG.info("Session created");
-
-
     }
 
     @SuppressWarnings("unchecked")
@@ -168,7 +164,26 @@ public class MQTTBrokerService extends RouteBuilder implements ContainerService,
 
     @Override
     public void afterCreateSession(ServerSession session) throws ActiveMQException {
+        RemotingConnection remotingConnection = session.getRemotingConnection();
 
+        if (remotingConnection == null || remotingConnection.getClientID() == null) {
+            return;
+        }
+
+        if (!clientIDConnectionMap.containsKey(remotingConnection.getClientID())) {
+            LOG.info("Session created");
+            clientIDConnectionMap.put(remotingConnection.getClientID(), remotingConnection);
+
+            // We do this here as connection plugin afterCreateConnection callback fires before client ID and subject are populated
+            for (MQTTHandler handler : getCustomHandlers()) {
+                handler.onConnect(remotingConnection);
+            }
+        }
+    }
+
+
+    public Iterable<MQTTHandler> getCustomHandlers() {
+        return customHandlers;
     }
 
     @Override
@@ -206,6 +221,8 @@ public class MQTTBrokerService extends RouteBuilder implements ContainerService,
     }
 
     public void publishMessage(String topic, Object data, MqttQoS qoS) {
+        System.out.println("publishMessage");
+
         try {
             if (internalSession != null) {
                 ClientProducer producer = internalSession.createProducer(MQTTUtil.convertMqttTopicFilterToCoreAddress(topic, server.getConfiguration().getWildcardConfiguration()));

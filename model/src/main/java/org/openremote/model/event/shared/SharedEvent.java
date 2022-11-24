@@ -19,7 +19,6 @@
  */
 package org.openremote.model.event.shared;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.openremote.model.asset.*;
@@ -31,6 +30,7 @@ import org.openremote.model.rules.RulesEngineStatusEvent;
 import org.openremote.model.rules.RulesetChangedEvent;
 import org.openremote.model.simulator.RequestSimulatorState;
 import org.openremote.model.simulator.SimulatorState;
+import org.openremote.model.syslog.ReadSyslogEvent;
 import org.openremote.model.syslog.SyslogEvent;
 
 /**
@@ -44,6 +44,7 @@ import org.openremote.model.syslog.SyslogEvent;
     @JsonSubTypes.Type(value = AssetsEvent.class, name = "assets"),
     @JsonSubTypes.Type(value = ReadAttributeEvent.class, name = "read-asset-attribute"),
     @JsonSubTypes.Type(value = ReadAssetEvent.class, name = "read-asset"),
+    @JsonSubTypes.Type(value= ReadSyslogEvent.class, name="read-syslog"),
     @JsonSubTypes.Type(value = ReadAssetsEvent.class, name = "read-assets"),
     @JsonSubTypes.Type(value = SimulatorState.class, name = "simulator-state"),
     @JsonSubTypes.Type(value = RequestSimulatorState.class, name = "request-simulator-state"),

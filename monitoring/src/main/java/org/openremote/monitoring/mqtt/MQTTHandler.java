@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.manager.mqtt;
+package org.openremote.monitoring.mqtt;
 
 import io.netty.buffer.ByteBuf;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
@@ -29,18 +29,11 @@ import org.apache.activemq.artemis.reader.MessageUtil;
 import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.keycloak.KeycloakSecurityContext;
 import org.openremote.container.message.MessageBrokerService;
-import org.openremote.container.security.AuthContext;
-import org.openremote.container.security.keycloak.AccessTokenAuthContext;
-import org.openremote.container.security.keycloak.KeycloakIdentityProvider;
-import org.openremote.manager.event.ClientEventService;
-import org.openremote.manager.security.ManagerIdentityService;
-import org.openremote.manager.security.ManagerKeycloakIdentityProvider;
 import org.openremote.model.Container;
-import org.openremote.model.util.Pair;
+import org.openremote.monitoring.event.ClientEventService;
 
 import javax.security.auth.Subject;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -55,9 +48,8 @@ public abstract class MQTTHandler {
     public static final String TOKEN_MULTI_LEVEL_WILDCARD = "#";
     public static final String TOKEN_SINGLE_LEVEL_WILDCARD = "+";
     protected ClientEventService clientEventService;
-    protected MQTTBrokerService mqttBrokerService;
+    protected  static MQTTBrokerService mqttBrokerService;
     protected MessageBrokerService messageBrokerService;
-    protected ManagerKeycloakIdentityProvider identityProvider;
     protected boolean isKeycloak;
 
     /**
@@ -82,15 +74,6 @@ public abstract class MQTTHandler {
         mqttBrokerService = container.getService(MQTTBrokerService.class);
         clientEventService = container.getService(ClientEventService.class);
         messageBrokerService = container.getService(MessageBrokerService.class);
-        ManagerIdentityService identityService = container.getService(ManagerIdentityService.class);
-
-        if (!identityService.isKeycloakEnabled()) {
-            getLogger().warning("MQTT connections are not supported when not using Keycloak identity provider");
-            isKeycloak = false;
-        } else {
-            isKeycloak = true;
-            identityProvider = (ManagerKeycloakIdentityProvider) identityService.getIdentityProvider();
-        }
 
         Set<String> publishListenerTopics = getPublishListenerTopics();
         if (publishListenerTopics != null) {
@@ -238,7 +221,7 @@ public abstract class MQTTHandler {
     }
 
     public static boolean topicRealmAllowed(KeycloakSecurityContext securityContext, Topic topic) {
-        return securityContext.getRealm().equals(topicRealm(topic)) || KeycloakIdentityProvider.isSuperUser(securityContext);
+        return securityContext.getRealm().equals(topicRealm(topic)) ;
     }
 
     public static boolean topicClientIdMatches(RemotingConnection connection, Topic topic) {
@@ -264,19 +247,5 @@ public abstract class MQTTHandler {
             .findFirst()
             .map(p -> ((MQTTConnectionPrincipal)p).getConnection())
             .orElse(null);
-    }
-
-    protected static KeycloakSecurityContext getSecurityContextFromSubject(Subject subject) {
-        return KeycloakIdentityProvider.getSecurityContext(subject);
-    }
-
-    protected static Optional<AuthContext> getAuthContextFromConnection(RemotingConnection connection) {
-        return Optional.ofNullable(getSubjectFromConnection(connection))
-            .map(MQTTHandler::getSecurityContextFromSubject)
-            .map(DefaultMQTTHandler::getAuthContextFromSecurityContext);
-    }
-
-    protected static AuthContext getAuthContextFromSecurityContext(KeycloakSecurityContext securityContext) {
-        return securityContext == null ? null : new AccessTokenAuthContext(securityContext.getRealm(), securityContext.getToken());
     }
 }

@@ -17,31 +17,31 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.manager.asset;
+package org.openremote.monitoring.syslog;
 
-import org.openremote.model.attribute.AttributeWriteFailure;
+import org.openremote.model.syslog.SyslogReadFailure;
 
 /**
  * The reason why processing an {@link org.openremote.model.attribute.AttributeEvent} failed.
  */
-public class AssetProcessingException extends RuntimeException {
+public class SyslogProcessingException extends RuntimeException {
 
-    final protected AttributeWriteFailure reason;
+    final protected SyslogReadFailure reason;
 
-    public AssetProcessingException(AttributeWriteFailure reason) {
+    public SyslogProcessingException(SyslogReadFailure reason) {
         this(reason, null);
     }
 
-    public AssetProcessingException(AttributeWriteFailure reason, String message) {
+    public SyslogProcessingException(SyslogReadFailure reason, String message) {
         this(reason, message, null);
     }
 
-    public AssetProcessingException(AttributeWriteFailure reason, String message, Throwable cause) {
+    public SyslogProcessingException(SyslogReadFailure reason, String message, Throwable cause) {
         super(reason + (message != null ? " (" + message + ")": ""), cause);
         this.reason = reason;
     }
 
-    public AttributeWriteFailure getReason() {
+    public SyslogReadFailure getReason() {
         return reason;
     }
 }

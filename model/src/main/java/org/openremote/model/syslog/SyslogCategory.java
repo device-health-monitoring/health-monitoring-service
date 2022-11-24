@@ -22,6 +22,7 @@ package org.openremote.model.syslog;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+
 public enum SyslogCategory {
 
     ASSET(
@@ -80,6 +81,7 @@ public enum SyslogCategory {
     protected final boolean includeSubCategory;
     protected final String[] mappedLoggerNames;
 
+
     SyslogCategory(String categoryLabel, boolean includeSubCategory, String... mappedLoggerNames) {
         this.categoryLabel = categoryLabel;
         this.includeSubCategory = includeSubCategory;
@@ -136,7 +138,9 @@ public enum SyslogCategory {
                     ? record.getMessage() + " -- " + record.getThrown().getMessage()
                     : record.getMessage();
 
-                return new SyslogEvent(record.getMillis(), level, category, subCategory, message);
+
+//                DefaultMQTTHandler.PublishMessageToMQTT(DefaultMQTTHandler.SYSLOG_TOPIC);
+                return new SyslogEvent(record.getMillis(), level, category, subCategory, "lapam salama");
             }
         }
         return null;

@@ -17,10 +17,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.model.asset;
+package org.openremote.model.syslog;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openremote.model.asset.AssetEvent;
 import org.openremote.model.event.shared.SharedEvent;
 
 /**
@@ -29,12 +30,12 @@ import org.openremote.model.event.shared.SharedEvent;
  * the right permissions, or if anything else is not in order (e.g. the asset doesn't exist), the server might not react
  * at all.
  */
-public class ReadAssetEvent extends SharedEvent {
+public class ReadSyslogEvent extends SharedEvent {
 
     protected String assetId;
 
     @JsonCreator
-    public ReadAssetEvent(@JsonProperty("assetId") String assetId) {
+    public ReadSyslogEvent(@JsonProperty("assetId") String assetId) {
         this.assetId = assetId;
     }
 

@@ -17,18 +17,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.manager.mqtt;
+package org.openremote.monitoring.mqtt;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelId;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.keycloak.KeycloakSecurityContext;
-import org.openremote.container.security.AuthContext;
 import org.openremote.container.web.ConnectionConstants;
-import org.openremote.manager.asset.AssetStorageService;
-import org.openremote.manager.event.ClientEventService;
-import org.openremote.model.Constants;
 import org.openremote.model.Container;
 import org.openremote.model.asset.AssetEvent;
 import org.openremote.model.asset.AssetFilter;
@@ -38,6 +33,7 @@ import org.openremote.model.event.shared.EventSubscription;
 import org.openremote.model.event.shared.SharedEvent;
 import org.openremote.model.syslog.SyslogCategory;
 import org.openremote.model.util.ValueUtil;
+import org.openremote.monitoring.event.ClientEventService;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -49,20 +45,17 @@ import java.util.regex.Pattern;
 import static org.openremote.model.Constants.ASSET_ID_REGEXP;
 import static org.openremote.model.syslog.SyslogCategory.API;
 
-/**
- * This handler uses the {@link ClientEventService} to publish and subscribe to asset and attribute events; converting
- * subscription topics into {@link AssetFilter}s to ensure only the correct events are returned for the subscription.
- */
+
 public class DefaultMQTTHandler extends MQTTHandler {
 
     public static final int PRIORITY = Integer.MIN_VALUE + 1000;
-    public static final String ASSET_TOPIC = "asset";
-    public static final String ATTRIBUTE_TOPIC = "attribute";
-    public static final String ATTRIBUTE_WRITE_TOPIC = "writeattribute";
-    public static final String ATTRIBUTE_VALUE_TOPIC = "attributevalue";
+    public static final String SYSLOG_TOPIC = "syslog";
+    public static final String SYSLOG_WRITE_TOPIC = "writesyslog";
+    public static final String SYSLOG_VALUE_TOPIC = "syslogvalue";
+    public static final String SYSLOG_VALUE_WRITE_TOPIC = "writesyslogvalue";
     public static final String ATTRIBUTE_VALUE_WRITE_TOPIC = "writeattributevalue";
+
     private static final Logger LOG = SyslogCategory.getLogger(API, DefaultMQTTHandler.class);
-    protected AssetStorageService assetStorageService;
 
     @Override
     public int getPriority() {
@@ -73,7 +66,6 @@ public class DefaultMQTTHandler extends MQTTHandler {
     @Override
     public void start(Container container) throws Exception {
         super.start(container);
-        assetStorageService = container.getService(AssetStorageService.class);
     }
 
     @Override
@@ -125,12 +117,6 @@ public class DefaultMQTTHandler extends MQTTHandler {
             return false;
         }
 
-        AuthContext authContext = getAuthContextFromSecurityContext(securityContext);
-
-        if (authContext == null) {
-            LOG.fine("Anonymous connection not supported: topic=" + topic + ", connection=" + connection);
-            return false;
-        }
 
         boolean isAttributeTopic = isAttributeTopic(topic);
         boolean isAssetTopic = isAssetTopic(topic);
@@ -206,10 +192,6 @@ public class DefaultMQTTHandler extends MQTTHandler {
             filter
         );
 
-        if (!clientEventService.authorizeEventSubscription(topicRealm(topic), authContext, subscription)) {
-            LOG.info("Subscription was not authorised for this user and topic: topic=" + topic + ", subject=" + authContext);
-            return false;
-        }
 
         return true;
 
@@ -242,13 +224,6 @@ public class DefaultMQTTHandler extends MQTTHandler {
 
         if (!isKeycloak) {
             LOG.fine("Identity provider is not keycloak");
-            return false;
-        }
-
-        AuthContext authContext = getAuthContextFromSecurityContext(securityContext);
-
-        if (authContext == null) {
-            LOG.fine("Anonymous publish not supported: topic=" + topic + ", connection=" + connection.getTransportConnection());
             return false;
         }
 
@@ -300,7 +275,7 @@ public class DefaultMQTTHandler extends MQTTHandler {
     @Override
     public void onUnsubscribe(RemotingConnection connection, Topic topic) {
         String subscriptionId = topic.toString();
-        boolean isAssetTopic = subscriptionId.startsWith(ASSET_TOPIC);
+        boolean isAssetTopic = subscriptionId.startsWith(SYSLOG_TOPIC);
         Map<String, Object> headers = prepareHeaders(connection);
         Class<SharedEvent> subscriptionClass = (Class) (isAssetTopic ? AssetEvent.class : AttributeEvent.class);
         CancelEventSubscription cancelEventSubscription = new CancelEventSubscription(subscriptionClass, subscriptionId);
@@ -310,25 +285,42 @@ public class DefaultMQTTHandler extends MQTTHandler {
     @Override
     public Set<String> getPublishListenerTopics() {
         return Set.of(
-            TOKEN_SINGLE_LEVEL_WILDCARD + "/" + TOKEN_SINGLE_LEVEL_WILDCARD + "/" + ATTRIBUTE_WRITE_TOPIC + "/" + TOKEN_MULTI_LEVEL_WILDCARD,
-            TOKEN_SINGLE_LEVEL_WILDCARD + "/" + TOKEN_SINGLE_LEVEL_WILDCARD + "/" + ATTRIBUTE_VALUE_WRITE_TOPIC + "/" + TOKEN_MULTI_LEVEL_WILDCARD
+            TOKEN_SINGLE_LEVEL_WILDCARD + "/" + TOKEN_SINGLE_LEVEL_WILDCARD + "/" + SYSLOG_WRITE_TOPIC + "/" + TOKEN_MULTI_LEVEL_WILDCARD,
+            TOKEN_SINGLE_LEVEL_WILDCARD + "/" + TOKEN_SINGLE_LEVEL_WILDCARD + "/" + SYSLOG_VALUE_WRITE_TOPIC + "/" + TOKEN_MULTI_LEVEL_WILDCARD,
+TOKEN_SINGLE_LEVEL_WILDCARD + "/" + TOKEN_SINGLE_LEVEL_WILDCARD + "/" + SYSLOG_TOPIC + "/" + TOKEN_MULTI_LEVEL_WILDCARD
+
         );
     }
 
     @Override
     public void onPublish(RemotingConnection connection, Topic topic, ByteBuf body) {
+        System.out.println("onPublish");
+
         List<String> topicTokens = topic.getTokens();
         boolean isValueWrite = topicTokens.get(2).equals(ATTRIBUTE_VALUE_WRITE_TOPIC);
+        boolean isValueSyslog = topicTokens.get(2).equals(SYSLOG_TOPIC);
+
         String payloadContent = body.toString(StandardCharsets.UTF_8);
         AttributeEvent attributeEvent;
 
+
         if (isValueWrite) {
+//
             String attributeName = topicTokens.get(3);
             String assetId = topicTokens.get(4);
             Object value = ValueUtil.parse(payloadContent).orElse(null);
             attributeEvent = new AttributeEvent(assetId, attributeName, value);
+
         } else {
             attributeEvent = ValueUtil.parse(payloadContent, AttributeEvent.class).orElse(null);
+        }
+        if (isValueSyslog){
+            if (topicTokens.size()==3){
+                String attributeName = topicTokens.get(2);
+                String assetId ="syslog";
+                Object value = ValueUtil.parse(payloadContent).orElse(null);
+                attributeEvent = new AttributeEvent(assetId, attributeName, value);
+            }
         }
 
         if (attributeEvent == null) {
@@ -424,7 +416,7 @@ public class DefaultMQTTHandler extends MQTTHandler {
     }
 
     protected Consumer<SharedEvent> getSubscriptionEventConsumer(RemotingConnection connection, Topic topic) {
-        boolean isValueSubscription = ATTRIBUTE_VALUE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
+        boolean isValueSubscription = SYSLOG_VALUE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
         boolean isAssetTopic = isAssetTopic(topic);
 
         // Always publish asset/attribute messages with QoS 0
@@ -475,29 +467,31 @@ public class DefaultMQTTHandler extends MQTTHandler {
         };
     }
 
+    public static void PublishMessageToMQTT(String topic){
+        MqttQoS mqttQoS = MqttQoS.AT_MOST_ONCE;
+        mqttBrokerService.publishMessage(topic,"salama",mqttQoS);
+    }
     protected static boolean isAttributeTopic(Topic topic) {
-        return ATTRIBUTE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2)) || ATTRIBUTE_VALUE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
+        return SYSLOG_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2)) || SYSLOG_VALUE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
     }
 
     protected static boolean isAttributeWriteTopic(Topic topic) {
-        return ATTRIBUTE_WRITE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
+        return SYSLOG_WRITE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
     }
 
     protected static boolean isAttributeValueWriteTopic(Topic topic) {
-        return ATTRIBUTE_VALUE_WRITE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
+        return SYSLOG_VALUE_WRITE_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
     }
 
     protected static boolean isAssetTopic(Topic topic) {
-        return ASSET_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
+        return SYSLOG_TOPIC.equalsIgnoreCase(topicTokenIndexToString(topic, 2));
     }
 
     protected static Map<String, Object> prepareHeaders(RemotingConnection connection) {
-        Optional<AuthContext> authContext = getAuthContextFromConnection(connection);
         Map<String, Object> headers = new HashMap<>();
         headers.put(ConnectionConstants.SESSION_KEY, MQTTBrokerService.getConnectionIDString(connection));
         headers.put(ClientEventService.HEADER_CONNECTION_TYPE, ClientEventService.HEADER_CONNECTION_TYPE_MQTT);
-        headers.put(Constants.AUTH_CONTEXT, authContext.orElse(null));
-        headers.put(Constants.REALM_PARAM_NAME, authContext.map(AuthContext::getAuthenticatedRealmName));
+
         return headers;
     }
 }
