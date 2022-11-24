@@ -17,46 +17,31 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.model.util;
+package org.openremote.manager.asset;
 
-import java.io.Serializable;
-import java.util.Objects;
+import org.openremote.model.attribute.AttributeWriteFailure;
 
-public class Pair<K, V> implements Serializable {
-    public K key;
-    public V value;
+/**
+ * The reason why processing an {@link org.openremote.model.attribute.AttributeEvent} failed.
+ */
+public class AssetProcessingException extends RuntimeException {
 
-    public Pair(K key, V value) {
-        this.key = key;
-        this.value = value;
+    final protected AttributeWriteFailure reason;
+
+    public AssetProcessingException(AttributeWriteFailure reason) {
+        this(reason, null);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o instanceof Pair) {
-            Pair<?,?> pair = (Pair<?,?>) o;
-            return (Objects.equals(key, pair.key))
-                    && (Objects.equals(value, pair.value));
-        }
-        return false;
+    public AssetProcessingException(AttributeWriteFailure reason, String message) {
+        this(reason, message, null);
     }
 
-    public K getKey() {
-        return key;
+    public AssetProcessingException(AttributeWriteFailure reason, String message, Throwable cause) {
+        super(reason + (message != null ? " (" + message + ")": ""), cause);
+        this.reason = reason;
     }
 
-    public V getValue() {
-        return value;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(key, value);
-    }
-
-    @Override
-    public String toString() {
-        return key + "=" + value;
+    public AttributeWriteFailure getReason() {
+        return reason;
     }
 }

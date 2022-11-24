@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, OpenRemote Inc.
+ * Copyright 2022, OpenRemote Inc.
  *
  * See the CONTRIBUTORS.txt file in the distribution for a
  * full listing of individual contributors.
@@ -17,39 +17,40 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.openremote.model.event.shared;
+package org.openremote.manager.mqtt;
 
-public class RealmFilter<T extends RealmScopedEvent> extends EventFilter<T> {
+import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 
-    public static final String FILTER_TYPE = "realm";
+import java.security.Principal;
+import java.util.Objects;
 
-    protected String name;
+public class MQTTConnectionPrincipal implements Principal {
 
-    protected RealmFilter() {
+    protected RemotingConnection connection;
+
+    public MQTTConnectionPrincipal(RemotingConnection connection) {
+        this.connection = connection;
     }
 
-    public RealmFilter(String name) {
-        this.name = name;
-    }
-
+    @Override
     public String getName() {
-        return name;
+        return connection.getProtocolName();
     }
 
     @Override
-    public String getFilterType() {
-        return FILTER_TYPE;
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MQTTConnectionPrincipal that = (MQTTConnectionPrincipal) o;
+        return connection.equals(that.connection);
     }
 
     @Override
-    public boolean apply(RealmScopedEvent event) {
-        return getName().equals(event.getRealm());
+    public int hashCode() {
+        return Objects.hash(connection);
     }
 
-    @Override
-    public String toString() {
-        return getClass().getSimpleName() + "{" +
-            "realm='" + name + '\'' +
-            '}';
+    public RemotingConnection getConnection() {
+        return connection;
     }
 }
