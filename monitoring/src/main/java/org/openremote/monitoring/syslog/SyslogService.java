@@ -19,19 +19,28 @@
  */
 package org.openremote.monitoring.syslog;
 
+import com.google.gson.Gson;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import org.apache.commons.lang.SerializationUtils;
+import org.openremote.container.persistence.PersistenceService;
+import org.openremote.model.Constants;
 import org.openremote.model.Container;
 import org.openremote.model.ContainerService;
-import org.openremote.container.persistence.PersistenceService;
-import org.openremote.monitoring.event.ClientEventService;
-//import org.openremote.manager.web.ManagerWebService;
-import org.openremote.model.Constants;
 import org.openremote.model.syslog.SyslogCategory;
 import org.openremote.model.syslog.SyslogConfig;
 import org.openremote.model.syslog.SyslogEvent;
 import org.openremote.model.syslog.SyslogLevel;
 import org.openremote.model.util.Pair;
+import org.openremote.monitoring.event.ClientEventService;
 
 import javax.persistence.TypedQuery;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -61,6 +70,12 @@ public class SyslogService extends Handler implements ContainerService {
     final protected List<SyslogEvent> batch = new ArrayList<>();
     protected ScheduledFuture flushBatchFuture;
     protected ScheduledFuture deleteOldFuture;
+
+    private static final String TASK_QUEUE_NAME = "task_queue";
+
+
+
+
 
     @Override
     public int getPriority() {
@@ -141,11 +156,65 @@ public class SyslogService extends Handler implements ContainerService {
     public void close() throws SecurityException {
     }
 
+    // Convert byte[] to object
+    public static Object convertBytesToObject(byte[] bytes) {
+        InputStream is = new ByteArrayInputStream(bytes);
+        try (ObjectInputStream ois = new ObjectInputStream(is)) {
+            return ois.readObject();
+        } catch (IOException | ClassNotFoundException ioe) {
+            ioe.printStackTrace();
+        }
+        throw new RuntimeException();
+    }
+
+
+    public void consume() throws Exception {
+        ConnectionFactory factory = new ConnectionFactory();
+        String uri = "amqps://jodczpvp:VwjDn2-2AM4HgWFqE5GFqPlaqnfFOIuo@sparrow.rmq.cloudamqp.com/jodczpvp";
+        factory.setUri(uri);
+
+        final Connection connection = factory.newConnection();
+        final Channel channel = connection.createChannel();
+
+        channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, null);
+        System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+
+        channel.basicQos(1);
+
+        DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+            String syslogEvent = new String(delivery.getBody(), "UTF-8");
+
+            System.out.println(" [x] Received '" + syslogEvent + "'");
+
+            try {
+                doWork(syslogEvent);
+            } finally {
+                System.out.println(" [x] Done");
+                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+            }
+        };
+        channel.basicConsume(TASK_QUEUE_NAME, false, deliverCallback, consumerTag -> { });
+
+    }
+
+    private static void doWork(String task) {
+        for (char ch : task.toCharArray()) {
+            if (ch == '.') {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException _ignored) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
     @Override
     public void publish(LogRecord record) {
         SyslogEvent syslogEvent = SyslogCategory.mapSyslogEvent(record);
         if (syslogEvent != null) {
             try {
+                consume();
                 store(syslogEvent);
             } catch (Exception e) {
                 LOG.log(Level.SEVERE, "Failed to store syslog event", e);
