@@ -168,34 +168,34 @@ public class SyslogService extends Handler implements ContainerService {
     }
 
 
-    public void consume() throws Exception {
-        ConnectionFactory factory = new ConnectionFactory();
-        String uri = "amqps://jodczpvp:VwjDn2-2AM4HgWFqE5GFqPlaqnfFOIuo@sparrow.rmq.cloudamqp.com/jodczpvp";
-        factory.setUri(uri);
-
-        final Connection connection = factory.newConnection();
-        final Channel channel = connection.createChannel();
-
-        channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, null);
-        System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
-
-        channel.basicQos(1);
-
-        DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-            String syslogEvent = new String(delivery.getBody(), "UTF-8");
-
-            System.out.println(" [x] Received '" + syslogEvent + "'");
-
-            try {
-                doWork(syslogEvent);
-            } finally {
-                System.out.println(" [x] Done");
-                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
-            }
-        };
-        channel.basicConsume(TASK_QUEUE_NAME, false, deliverCallback, consumerTag -> { });
-
-    }
+//    public void consume() throws Exception {
+//        ConnectionFactory factory = new ConnectionFactory();
+//        String uri = "amqps://jodczpvp:VwjDn2-2AM4HgWFqE5GFqPlaqnfFOIuo@sparrow.rmq.cloudamqp.com/jodczpvp";
+//        factory.setUri(uri);
+//
+//        final Connection connection = factory.newConnection();
+//        final Channel channel = connection.createChannel();
+//
+//        channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, null);
+//        System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+//
+//        channel.basicQos(1);
+//
+//        DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+//            String syslogEvent = new String(delivery.getBody(), "UTF-8");
+//
+//            System.out.println(" [x] Received '" + syslogEvent + "'");
+//
+//            try {
+//                doWork(syslogEvent);
+//            } finally {
+//                System.out.println(" [x] Done");
+//                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+//            }
+//        };
+//        channel.basicConsume(TASK_QUEUE_NAME, false, deliverCallback, consumerTag -> { });
+//
+//    }
 
     private static void doWork(String task) {
         for (char ch : task.toCharArray()) {
@@ -211,10 +211,11 @@ public class SyslogService extends Handler implements ContainerService {
 
     @Override
     public void publish(LogRecord record) {
+//        System.out.println("Enters publish");
         SyslogEvent syslogEvent = SyslogCategory.mapSyslogEvent(record);
         if (syslogEvent != null) {
             try {
-                consume();
+//                consume();
                 store(syslogEvent);
             } catch (Exception e) {
                 LOG.log(Level.SEVERE, "Failed to store syslog event", e);
