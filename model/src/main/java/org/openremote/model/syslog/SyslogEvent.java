@@ -105,7 +105,7 @@ public class SyslogEvent extends SharedEvent {
     @Column(name = "MESSAGE", length = 131072)
     protected String message;
 
-    protected SyslogEvent() {
+    public SyslogEvent() {
     }
 
     public SyslogEvent(long timestamp, SyslogLevel level, SyslogCategory category, String subCategory, String message) {
@@ -161,4 +161,25 @@ public class SyslogEvent extends SharedEvent {
             ", message='" + message + '\'' +
             '}';
     }
+
+    static public SyslogEvent toObject( String object) throws Exception {
+
+        String attributes = object.split("\\{")[1].split("\\}")[0];
+
+        String[] res = attributes.split(", ", 5);
+
+        if (res.length < 5) {
+            throw new Exception("Something went wrong.");
+        }
+
+        final SyslogLevel level = SyslogLevel.valueOf(res[0].split("=")[1]);
+        final SyslogCategory category = SyslogCategory.valueOf(res[1].split("=")[1]);
+        final String subCategory = res[2].split("=")[1];
+        final String timestamp = res[3].split("=")[1];
+
+        final String message = res[4].split("\"")[1];
+
+        return new SyslogEvent(Long.parseLong(timestamp)  , level, category, subCategory, message);
+    }
+
 }

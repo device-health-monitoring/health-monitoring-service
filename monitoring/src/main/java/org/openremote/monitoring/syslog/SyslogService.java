@@ -19,12 +19,12 @@
  */
 package org.openremote.monitoring.syslog;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
-import org.apache.commons.lang.SerializationUtils;
 import org.openremote.container.persistence.PersistenceService;
 import org.openremote.model.Constants;
 import org.openremote.model.Container;
@@ -109,6 +109,7 @@ public class SyslogService extends Handler implements ContainerService {
         config = new SyslogConfig(
                 SyslogLevel.INFO, SyslogCategory.values(), 60 * 24 * 5
         );
+
     }
 
     @Override
@@ -134,6 +135,8 @@ public class SyslogService extends Handler implements ContainerService {
                 });
             }, 60, 60, TimeUnit.SECONDS);
         }
+        consume();
+
     }
 
     @Override
@@ -182,12 +185,22 @@ public class SyslogService extends Handler implements ContainerService {
         channel.basicQos(1);
 
         DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-            String syslogEvent = new String(delivery.getBody(), "UTF-8");
+            String msg = new String(delivery.getBody(), "UTF-8");
 
-            System.out.println(" [x] Received '" + syslogEvent + "'");
+            System.out.println(" [x] Received '" + msg + "'");
 
             try {
-                doWork(syslogEvent);
+                SyslogEvent event = SyslogEvent.toObject( msg);
+
+                publishEvent(event);
+
+            }catch (Exception e) {
+                LOG.log(Level.SEVERE, "Failed to parse to object", e);
+            }
+
+
+            try {
+                doWork(msg);
             } finally {
                 System.out.println(" [x] Done");
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
@@ -214,8 +227,8 @@ public class SyslogService extends Handler implements ContainerService {
         SyslogEvent syslogEvent = SyslogCategory.mapSyslogEvent(record);
         if (syslogEvent != null) {
             try {
-                consume();
                 store(syslogEvent);
+
             } catch (Exception e) {
                 LOG.log(Level.SEVERE, "Failed to store syslog event", e);
             }
@@ -228,6 +241,20 @@ public class SyslogService extends Handler implements ContainerService {
         }
     }
 
+    public void publishEvent(SyslogEvent syslogEvent ) {
+            try {
+                store(syslogEvent);
+
+            } catch (Exception e) {
+                LOG.log(Level.SEVERE, "Failed to store syslog event", e);
+            }
+            try {
+                if (clientEventService != null)
+                    clientEventService.publishEvent(syslogEvent);
+            } catch (Exception e) {
+                LOG.log(Level.SEVERE, "Failed to send syslog event to subscribed clients", e);
+            }
+    }
     public void setConfig(SyslogConfig config) {
         synchronized (batch) {
             LOG.info("Using: " + config);
@@ -320,13 +347,15 @@ public class SyslogService extends Handler implements ContainerService {
     }
 
     protected void store(SyslogEvent syslogEvent) {
-        if (persistenceService == null)
+        if (persistenceService == null) {
             return;
+        }
 
         // If we are not ready (on startup), ignore
         if (persistenceService.getEntityManagerFactory() == null) {
             return;
         }
+
         boolean isLoggable =
                 config.getStoredLevel().isLoggable(syslogEvent)
                         && Arrays.asList(config.getStoredCategories()).contains(syslogEvent.getCategory());
@@ -371,4 +400,6 @@ public class SyslogService extends Handler implements ContainerService {
     public String toString() {
         return getClass().getSimpleName() + "{}";
     }
+
+
 }
